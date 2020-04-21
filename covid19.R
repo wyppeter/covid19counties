@@ -4,11 +4,11 @@
 library(RCurl)
 library(tidyr)
 library(dplyr)
-library(nlstools)
 library(ggplot2)
 library(grid)
 library(gridExtra)
 library(lubridate)
+library(zoo)
 
 # Get county-level data; could take some seconds
 df.raw = read.csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv")
@@ -27,7 +27,7 @@ STATE = "Massachusetts"  ;c=7;k=2
 # STATE = "Connecticut"    ;c=3;k=1
 
 # Parameters
-SAVEPLOTS = T  # save or view plots at the end
+SAVEPLOTS = F  # save or view plots at the end
 SMOOTH = T  # 3-day smoothing of plot or raw trends
 COLNUM = c  # number of counties to show color and label for
 k = k  # divide state total count by k to make graph easier to see
@@ -133,16 +133,16 @@ df.trends = df %>%
   ) %>%
   # Smoothing
   mutate(
-    cases.growth.smooth = zoo::rollapply(
+    cases.growth.smooth = rollapply(
       cases.growth, mean, width = 3, by = 1, align = "center", fill = NA  # rolling window averaging
     ),
-    deaths.growth.smooth = zoo::rollapply(
+    deaths.growth.smooth = rollapply(
       deaths.growth, mean, width = 3, by = 1, align = "center", fill = NA
     ),
-    cases.growth.rate.smooth = zoo::rollapply(
+    cases.growth.rate.smooth = rollapply(
       cases.growth.rate, mean, width = 3, by = 1, align = "center", fill = NA
     ),
-    deaths.growth.rate.smooth = zoo::rollapply(
+    deaths.growth.rate.smooth = rollapply(
       deaths.growth.rate, mean, width = 3, by = 1, align = "center", fill = NA
     )) %>%
   # Calculate doubling times
