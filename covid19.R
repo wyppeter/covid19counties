@@ -5,8 +5,7 @@ library(RCurl)
 library(tidyr)
 library(dplyr)
 library(ggplot2)
-library(grid)
-library(gridExtra)
+library(ggpubr)
 library(lubridate)
 library(zoo)
 
@@ -37,14 +36,36 @@ k = k  # divide state total count by k to make graph easier to see
 CASEFILTER = 50  # rates calculated only when cases exceeed
 DEATHFILTER = 10  # rates calculated only when deaths exceeed
 
-# MA policies (1. stay-at-home, 2. face masks) with delay-day delay for cases; use geom_blank() for other states
+# MA policies (1. stay-at-home advisory, 2. facemasks advisory) with delay-day delay for cases; use geom_blank() for other states
 delay = 10
+date1 = ymd(20200324)
+date2 = ymd(20200410)
 if (STATE == "Massachusetts"){
-  MApolicy1 = geom_vline(xintercept = ymd(20200324)+delay, linetype = "dashed", color = "salmon", alpha = 0.5, size = 0.8)
-  MApolicy2 = geom_vline(xintercept = ymd(20200410)+delay, linetype = "dashed", color = "cadetblue", alpha = 0.5, size = 0.8)
+  MApolicy1 = geom_vline(
+    xintercept = date1+delay,
+    linetype = "dashed", color = "salmon", alpha = 0.5, size = 0.8
+    )
+  MApolicy2 = geom_vline(
+    xintercept = date2+delay,
+    linetype = "dashed", color = "cadetblue", alpha = 0.5, size = 0.8
+    )
+  MApolicy1text = annotate(
+    "text",
+    x = date1+delay, y = Inf, vjust = 1, hjust = -0.05,
+    label = "stay-at-home+10d",
+    color = "salmon", alpha = 0.5, size = 3
+  )
+  MApolicy2text = annotate(
+    "text",
+    x = date2+delay, y = Inf, vjust = 1, hjust = -0.05,
+    label = "facemasks+10d",
+    color = "cadetblue", alpha = 0.5, size = 3
+  )
 }else{
   MApolicy1 = geom_blank()
   MApolicy2 = geom_blank()
+  MApolicy1text = geom_blank()
+  MApolicy2text = geom_blank()
 }
 
 # Set ggplot2 theme
@@ -197,7 +218,7 @@ G1 = df %>%
   x.ticks.halfm +
   ggtitle("Confirmed cases (log10)") +
   xlab("Date") +
-  MApolicy1 + MApolicy2 +
+  MApolicy1 + MApolicy2 + MApolicy1text + MApolicy2text +
   colorscale +
   theme1
 
@@ -208,11 +229,9 @@ G2 = df.trends %>%
   x.ticks.halfm +
   ggtitle("Daily case growth") +
   xlab(date.axis.smooth) +
-  MApolicy1 + MApolicy2 +
+  MApolicy1 + MApolicy2 + MApolicy1text + MApolicy2text +
   colorscale +
   theme1
-
-# grid.arrange(G1, G2, nrow = 1)
 
 ########################################
 # DEATH TRENDS AND DAILY COUNT
@@ -238,8 +257,6 @@ G4 = df.trends %>%
   colorscale +
   theme1
 
-# grid.arrange(G3, G4, nrow = 1)
-
 ################################################
 # DAILY GROWTH RATE
 
@@ -253,7 +270,7 @@ G5 = df.trends %>%
   xlab(date.axis.smooth) +
   y.lim.rate +
   y.ticks.pc +
-  MApolicy1 + MApolicy2 +
+  MApolicy1 + MApolicy2 + MApolicy1text + MApolicy2text +
   colorscale +
   theme1
 
@@ -270,8 +287,6 @@ G6 = df.trends %>%
   colorscale +
   theme1
 
-# grid.arrange(G5, G6, nrow = 1)
-
 #############################
 # DOUBLING TIME
 
@@ -285,7 +300,7 @@ G7 = df.trends %>%
   xlab(date.axis.smooth) +
   y.lim.wks +
   y.ticks.weeks +
-  MApolicy1 + MApolicy2 +
+  MApolicy1 + MApolicy2 + MApolicy1text + MApolicy2text +
   colorscale +
   theme1
 
@@ -302,17 +317,16 @@ G8 = df.trends %>%
   colorscale +
   theme1
 
-# grid.arrange(G7, G8, nrow = 1)
-
 #####################
 
 # Plot time!
-titleobj = textGrob(paste0(STATE, " (up to ", maxDate, ")"), gp = gpar(fontface = "bold", fontsize = 24))
+titleobj = text_grob(paste0(STATE, " (up to ", maxDate, ")"), face = "bold", size = 20)
+G = annotate_figure(
+  ggarrange(G1,G3,G2,G4,G5,G6,G7,G8, nrow = 4, ncol = 2, common.legend = T, legend = "right"),
+  top = titleobj
+)
 
-if(!SAVEPLOTS){
-  grid.arrange(G1,G3,G2,G4,G5,G6,G7,G8, nrow = 4, top = titleobj)  # for viewing
-}else{
-  G = arrangeGrob(G1,G3,G2,G4,G5,G6,G7,G8, nrow = 4, top = titleobj)
-  ggsave(file = paste0("covid19_", STATE, ".pdf"), G, width = 12, height = 12, units = "in")
-  ggsave(file = paste0("covid19_", STATE, ".png"), G, width = 12, height = 12, units = "in", dpi = 320)
+if(!SAVEPLOTS){G}else{
+  ggsave(file = paste0("covid19_", STATE, "_", maxDate, ".pdf"), G, width = 12, height = 12, units = "in")
+  ggsave(file = paste0("covid19_", STATE, "_", maxDate, ".png"), G, width = 12, height = 12, units = "in", dpi = 320)
 }

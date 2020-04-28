@@ -344,6 +344,7 @@ GMDL = df.trends %>%
             inherit.aes = F,
             size = 3,
             alpha = 0.5,
+            nudge_y = 200,
             aes(color = mdl,
                 y = cases.growth,
                 x = modelZero + time,
@@ -352,9 +353,15 @@ GMDL = df.trends %>%
                 )
                 )
             ) +
-  ggtitle("Predicted daily case growth") +
+  geom_text(inherit.aes = FALSE,
+            data = df.lm.o,
+            size = 3, x = ymd(20200701), y = Inf, vjust = 1, parse = T, color = "deeppink", alpha = 0.75,
+            aes(
+              label = paste0("'fit'~R^2==", as.character(format(round(as.numeric(rsq), 3), nsmall = 3))))) +
+  ggtitle("Daily case growth with prediction models") +
   xlab("Date") +
   facet_wrap(vars(state), scales = "free", ncol = 5) +
+  scale_y_continuous(expand = c(0, 0)) +
   colormodel +
   theme1
 
