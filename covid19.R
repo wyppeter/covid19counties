@@ -24,9 +24,10 @@ STATE = "Massachusetts"  ;c=7;k=2
 # STATE = "Louisiana"      ;c=5;k=2
 # STATE = "Pennsylvania"   ;c=5;k=2
 # STATE = "Connecticut"    ;c=3;k=1
+# STATE = "District of Columbia" ;c=1;k=1
 
 # Parameters
-SAVEPLOTS = F  # save or view plots at the end
+SAVEPLOTS = T  # save or view plots at the end
 SMOOTH = T  # 3-day smoothing of plot or raw trends
 COLNUM = c  # number of counties to show color and label for
 k = k  # divide state total count by k to make graph easier to see
@@ -36,24 +37,32 @@ k = k  # divide state total count by k to make graph easier to see
 CASEFILTER = 50  # rates calculated only when cases exceeed
 DEATHFILTER = 10  # rates calculated only when deaths exceeed
 
-# MA policies (1. stay-at-home advisory, 2. facemasks advisory) with delay-day delay for cases; use geom_blank() for other states
+# MA policies with delay-day delay for cases; use geom_blank() for other states
+# 1. stay-at-home advisory
+# 2. facemasks advisory
+# 3. Reopening initiation
 delay = 10
 date1 = ymd(20200324)
 date2 = ymd(20200410)
+date3 = ymd(20200518)
 if (STATE == "Massachusetts"){
   MApolicy1 = geom_vline(
     xintercept = date1+delay,
-    linetype = "dashed", color = "salmon", alpha = 0.5, size = 0.8
+    linetype = "dashed", color = "darkgoldenrod", alpha = 0.5, size = 0.8
     )
   MApolicy2 = geom_vline(
     xintercept = date2+delay,
     linetype = "dashed", color = "cadetblue", alpha = 0.5, size = 0.8
     )
+  MApolicy3 = geom_vline(
+    xintercept = date3+delay,
+    linetype = "dashed", color = "salmon", alpha = 0.5, size = 0.8
+  )
   MApolicy1text = annotate(
     "text",
     x = date1+delay, y = Inf, vjust = 1, hjust = -0.05,
     label = "stay-at-home+10d",
-    color = "salmon", alpha = 0.5, size = 3
+    color = "darkgoldenrod", alpha = 0.5, size = 3
   )
   MApolicy2text = annotate(
     "text",
@@ -61,11 +70,19 @@ if (STATE == "Massachusetts"){
     label = "facemasks+10d",
     color = "cadetblue", alpha = 0.5, size = 3
   )
+  MApolicy3text = annotate(
+    "text",
+    x = date3+delay, y = Inf, vjust = 1, hjust = -0.05,
+    label = "reopen1+10d",
+    color = "salmon", alpha = 0.5, size = 3
+  )
 }else{
   MApolicy1 = geom_blank()
   MApolicy2 = geom_blank()
+  MApolicy3 = geom_blank()
   MApolicy1text = geom_blank()
   MApolicy2text = geom_blank()
+  MApolicy3text = geom_blank()
 }
 
 # Set ggplot2 theme
@@ -190,9 +207,9 @@ colorscale = scale_colour_manual(values = genCol(coln = COLNUM), breaks = counti
 # General lin plot geom
 geom_line_plot  = geom_line(size = 0.5, alpha = 0.7, aes(group = county.o))
 # Growth rate y-axis
-y.lim.rate = coord_cartesian(ylim = c(0.01,0.75))
+y.lim.rate = coord_cartesian(ylim = c(0.002,1.00))
 y.ticks.pc = scale_y_log10(labels = scales::percent,
-                           breaks = c(0.01,0.02,0.03,0.05,0.10,0.20,0.30,0.50,0.75),
+                           breaks = c(0.002,0.005,0.01,0.02,0.05,0.10,0.20,0.50,1.00),
                            minor_breaks = NULL)
 # Doubling time y-axis
 DOUBLINGWKS = ((unname(max(
@@ -203,7 +220,7 @@ DOUBLINGWKS = ((unname(max(
   )$doublingtime
 ))*1.2) %/% 7) + 1
 y.lim.wks = coord_cartesian(ylim = c(0, 7*DOUBLINGWKS))
-y.ticks.weeks = scale_y_continuous(breaks = seq(0,7*DOUBLINGWKS,7))
+y.ticks.weeks = scale_y_continuous(breaks = seq(0,7*DOUBLINGWKS,14))
 
 ########################################
 # We start graphing here:
@@ -218,7 +235,7 @@ G1 = df %>%
   x.ticks.halfm +
   ggtitle("Confirmed cases (log10)") +
   xlab("Date") +
-  MApolicy1 + MApolicy2 + MApolicy1text + MApolicy2text +
+  MApolicy1 + MApolicy2 + MApolicy3 + MApolicy1text + MApolicy2text + MApolicy3text +
   colorscale +
   theme1
 
@@ -229,7 +246,7 @@ G2 = df.trends %>%
   x.ticks.halfm +
   ggtitle("Daily case growth") +
   xlab(date.axis.smooth) +
-  MApolicy1 + MApolicy2 + MApolicy1text + MApolicy2text +
+  MApolicy1 + MApolicy2 + MApolicy3 + MApolicy1text + MApolicy2text + MApolicy3text +
   colorscale +
   theme1
 
@@ -270,7 +287,7 @@ G5 = df.trends %>%
   xlab(date.axis.smooth) +
   y.lim.rate +
   y.ticks.pc +
-  MApolicy1 + MApolicy2 + MApolicy1text + MApolicy2text +
+  MApolicy1 + MApolicy2 + MApolicy3 + MApolicy1text + MApolicy2text + MApolicy3text +
   colorscale +
   theme1
 
@@ -300,7 +317,7 @@ G7 = df.trends %>%
   xlab(date.axis.smooth) +
   y.lim.wks +
   y.ticks.weeks +
-  MApolicy1 + MApolicy2 + MApolicy1text + MApolicy2text +
+  MApolicy1 + MApolicy2 + MApolicy3 + MApolicy1text + MApolicy2text + MApolicy3text +
   colorscale +
   theme1
 
@@ -325,8 +342,17 @@ G = annotate_figure(
   ggarrange(G1,G3,G2,G4,G5,G6,G7,G8, nrow = 4, ncol = 2, common.legend = T, legend = "right"),
   top = titleobj
 )
-
+# Create datestamp subfolder
+formattedDate = format(maxDate, "%Y%m%d")
+if(!dir.exists(paste0("./", formattedDate))){
+  dir.create(paste0("./", formattedDate))
+}
 if(!SAVEPLOTS){G}else{
-  ggsave(file = paste0("covid19_", STATE, "_", maxDate, ".pdf"), G, width = 12, height = 12, units = "in")
-  ggsave(file = paste0("covid19_", STATE, "_", maxDate, ".png"), G, width = 12, height = 12, units = "in", dpi = 320)
+  if(SMOOTH){
+    fileprefix = paste0("./", formattedDate, "/covid19_", STATE, "_", maxDate, "_smooth")
+  }else{
+    fileprefix = paste0("./", formattedDate, "/covid19_", STATE, "_", maxDate)
+  }
+  ggsave(file = paste0(fileprefix, ".pdf"), G, width = 12, height = 12, units = "in")
+  ggsave(file = paste0(fileprefix, ".png"), G, width = 12, height = 12, units = "in", dpi = 320)
 }
