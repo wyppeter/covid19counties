@@ -63,6 +63,9 @@ FACETCOLS = 4
 CASEFILTER = 50  # rates calculated only when cases exceeed
 DEATHFILTER = 10  # rates calculated only when deaths exceeed
 
+# Rsquare cutoff
+RSQTHRES = 0.2
+
 # Plot components to set up
 # General lin plot geom
 geom_line_plot  = geom_line(size = 0.3, alpha = 0.7, color = "grey30")
@@ -132,6 +135,7 @@ df = df.raw %>%
   arrange(-cases.max) %>%
   ungroup() %>%
   mutate(state.r = state,
+         # state = factor(state.r, levels = sort(as.character(levels(state.r))))) %>%  # sort alphabetically
          state = factor(state.r, levels = unique(state.r))) %>%
   select(-state.r, -cases.max) %>%
   arrange(state)
@@ -219,7 +223,7 @@ Glmfit = df.rate %>%
 
   ggtitle("Fitting confirmed cases growth rate (log10)") +
   xlab(paste0("Days since ", modelZero)) +
-  facet_wrap(vars(state), ncol = FACETCOLS) +
+  facet_wrap(vars(state), ncol = 10) +
   theme1
 
 # Glmfit # view
@@ -241,7 +245,7 @@ df.zero = day0estim.df %>%
   select(-state)
 
 df.lm = cbind(df.lm.o, df.zero) %>%
-  filter(rsq >= 0.10)
+  filter(rsq >= RSQTHRES)
 
 # ODE
 DEmodel = function(t, state, parameters) {
@@ -334,7 +338,7 @@ GM1 = df.model %>%
   scale_y_log10(limits = c(1,NA)) +
   ggtitle("Modeled cases (log10)") +
   xlab("Date") +
-  facet_wrap(vars(state), scales = "free", ncol = FACETCOLS) +
+  facet_wrap(vars(state), scales = "free", ncol = 10) +
   colormodel +
   theme1
 
@@ -343,7 +347,7 @@ GM2 = df.model %>%
   geom_line() +
   ggtitle("Modeled cases growth") +
   xlab("Date") +
-  facet_wrap(vars(state), scales = "free", ncol = FACETCOLS) +
+  facet_wrap(vars(state), scales = "free", ncol = 10) +
   colormodel +
   theme1
 
@@ -435,3 +439,6 @@ if(!SAVEPLOTS){
   ggsave(file = paste0(filepref, ".pdf"), GMDL, width = w, height = h, units = "in")
   ggsave(file = paste0(filepref, ".png"), GMDL, width = w, height = h, units = "in", dpi = 320)
 }
+
+# Print note
+print(paste0("COVID-19 model graphs completed up to ", maxDate))

@@ -25,13 +25,18 @@ STATE = "Massachusetts"  ;c=7;k=2
 # STATE = "Pennsylvania"   ;c=5;k=2
 # STATE = "Connecticut"    ;c=3;k=1
 # STATE = "District of Columbia" ;c=1;k=1
+# STATE = "Georgia" ;c=6;k=3
+# STATE = "Maine"  ;c=5;k=1
 
 # Parameters
 SAVEPLOTS = T  # save or view plots at the end
-SMOOTH = T  # 3-day smoothing of plot or raw trends
+SMOOTH = F  # SMOOTHSIZE-day smoothing of plot or raw trends
 COLNUM = c  # number of counties to show color and label for
 k = k  # divide state total count by k to make graph easier to see
 
+# Smoothing setup (only if SMOOTH = T)
+SMOOTHSIZE = 3
+SMOOTHRAN = floor((SMOOTHSIZE-1)/2)
 
 # Filters for N when calculating rates
 CASEFILTER = 50  # rates calculated only when cases exceeed
@@ -45,6 +50,7 @@ delay = 10
 date1 = ymd(20200324)
 date2 = ymd(20200410)
 date3 = ymd(20200518)
+date4 = ymd(20200608)
 if (STATE == "Massachusetts"){
   MApolicy1 = geom_vline(
     xintercept = date1+delay,
@@ -56,6 +62,10 @@ if (STATE == "Massachusetts"){
     )
   MApolicy3 = geom_vline(
     xintercept = date3+delay,
+    linetype = "dashed", color = "salmon", alpha = 0.5, size = 0.8
+  )
+  MApolicy4 = geom_vline(
+    xintercept = date4+delay,
     linetype = "dashed", color = "salmon", alpha = 0.5, size = 0.8
   )
   MApolicy1text = annotate(
@@ -76,13 +86,21 @@ if (STATE == "Massachusetts"){
     label = "reopen1+10d",
     color = "salmon", alpha = 0.5, size = 3
   )
+  MApolicy4text = annotate(
+    "text",
+    x = date4+delay, y = Inf, vjust = 1, hjust = -0.05,
+    label = "reopen2+10d",
+    color = "salmon", alpha = 0.5, size = 3
+  )
 }else{
   MApolicy1 = geom_blank()
   MApolicy2 = geom_blank()
   MApolicy3 = geom_blank()
+  MApolicy4 = geom_blank()
   MApolicy1text = geom_blank()
   MApolicy2text = geom_blank()
   MApolicy3text = geom_blank()
+  MApolicy4text = geom_blank()
 }
 
 # Set ggplot2 theme
@@ -117,9 +135,10 @@ genCol = function(coln){
     "darkslateblue",
     "darkorange2",
     "cadetblue4",
-    "darkorchid3"
+    "darkorchid3",
+    rep("plum2",10)
   )
-  greys = rep("grey80",100)
+  greys = rep("grey80",250)
   c("black",fullcol[1:coln],greys)
 }
 
@@ -129,7 +148,7 @@ maxDate = max(ymd(df.raw$date))
 x.ticks.halfm = scale_x_date(breaks = c(ymd("20200301","20200315","20200401","20200415","20200501","20200515","20200601","20200615")),
                              date_labels = "%b %d",
                              limits = c(startDate,maxDate))
-if(SMOOTH){date.axis.smooth = "Date (3-day average)"}else{date.axis.smooth = "Date"}
+if(SMOOTH){date.axis.smooth = paste0("Date (", SMOOTHSIZE, "-day average)")}else{date.axis.smooth = "Date"}
 
 # Filter and process data
 df = df.raw %>%
@@ -172,27 +191,31 @@ df.trends = df %>%
   # Smoothing
   mutate(
     cases.growth.smooth = rollapply(
-      cases.growth, mean, width = 3, by = 1, align = "center", fill = NA  # rolling window averaging
+      cases.growth,
+      mean, width = SMOOTHSIZE, by = 1, align = "center", fill = NA  # rolling window averaging
     ),
     deaths.growth.smooth = rollapply(
-      deaths.growth, mean, width = 3, by = 1, align = "center", fill = NA
+      deaths.growth,
+      mean, width = SMOOTHSIZE, by = 1, align = "center", fill = NA
     ),
     cases.growth.rate.smooth = rollapply(
-      cases.growth.rate, mean, width = 3, by = 1, align = "center", fill = NA
+      cases.growth.rate,
+      mean, width = SMOOTHSIZE, by = 1, align = "center", fill = NA
     ),
     deaths.growth.rate.smooth = rollapply(
-      deaths.growth.rate, mean, width = 3, by = 1, align = "center", fill = NA
+      deaths.growth.rate,
+      mean, width = SMOOTHSIZE, by = 1, align = "center", fill = NA
     )) %>%
   # Calculate doubling times
   mutate(
     doublingtime = log(2)/log(1+if(SMOOTH){cases.growth.rate.smooth}else{cases.growth.rate}),
     ddoublingtime = log(2)/log(1+if(SMOOTH){deaths.growth.rate.smooth}else{deaths.growth.rate})
   ) %>%
-  # The first and last of 3-day averaging is not relevant; +2 gets rid of the first one that is a delta from the max of previous county in the list
+  # The edges of N-day averaging are not relevant; additional +1 gets rid of the first one that is a delta from the max of previous county in the list
   group_by(county) %>%
     filter(
       if(SMOOTH){
-        date >= min(date)+2 & date <= max(date)-1
+        date >= min(date)+1+SMOOTHRAN & date <= max(date)-SMOOTHRAN
       }else{
         date >= min(date)+1 & date <= max(date)
       }
@@ -207,16 +230,17 @@ colorscale = scale_colour_manual(values = genCol(coln = COLNUM), breaks = counti
 # General lin plot geom
 geom_line_plot  = geom_line(size = 0.5, alpha = 0.7, aes(group = county.o))
 # Growth rate y-axis
-y.lim.rate = coord_cartesian(ylim = c(0.002,1.00))
+y.lim.rate = coord_cartesian(ylim = c(0.001,1.00))
 y.ticks.pc = scale_y_log10(labels = scales::percent,
-                           breaks = c(0.002,0.005,0.01,0.02,0.05,0.10,0.20,0.50,1.00),
+                           breaks = c(0.001,0.002,0.005,0.01,0.02,0.05,0.10,0.20,0.50,1.00),
                            minor_breaks = NULL)
 # Doubling time y-axis
 DOUBLINGWKS = ((unname(max(
   filter(
     df.trends,
     cases >= CASEFILTER,
-    county == paste0("TOTAL/", k)
+    county == paste0("TOTAL/", k),
+    !is.infinite(doublingtime)
   )$doublingtime
 ))*1.2) %/% 7) + 1
 y.lim.wks = coord_cartesian(ylim = c(0, 7*DOUBLINGWKS))
@@ -235,7 +259,7 @@ G1 = df %>%
   x.ticks.halfm +
   ggtitle("Confirmed cases (log10)") +
   xlab("Date") +
-  MApolicy1 + MApolicy2 + MApolicy3 + MApolicy1text + MApolicy2text + MApolicy3text +
+  MApolicy1 + MApolicy2 + MApolicy3 + MApolicy4 + MApolicy1text + MApolicy2text + MApolicy3text + MApolicy4text +
   colorscale +
   theme1
 
@@ -246,7 +270,7 @@ G2 = df.trends %>%
   x.ticks.halfm +
   ggtitle("Daily case growth") +
   xlab(date.axis.smooth) +
-  MApolicy1 + MApolicy2 + MApolicy3 + MApolicy1text + MApolicy2text + MApolicy3text +
+  MApolicy1 + MApolicy2 + MApolicy3 + MApolicy4 + MApolicy1text + MApolicy2text + MApolicy3text + MApolicy4text +
   colorscale +
   theme1
 
@@ -287,7 +311,7 @@ G5 = df.trends %>%
   xlab(date.axis.smooth) +
   y.lim.rate +
   y.ticks.pc +
-  MApolicy1 + MApolicy2 + MApolicy3 + MApolicy1text + MApolicy2text + MApolicy3text +
+  MApolicy1 + MApolicy2 + MApolicy3 + MApolicy4 + MApolicy1text + MApolicy2text + MApolicy3text + MApolicy4text +
   colorscale +
   theme1
 
@@ -317,7 +341,7 @@ G7 = df.trends %>%
   xlab(date.axis.smooth) +
   y.lim.wks +
   y.ticks.weeks +
-  MApolicy1 + MApolicy2 + MApolicy3 + MApolicy1text + MApolicy2text + MApolicy3text +
+  MApolicy1 + MApolicy2 + MApolicy3 + MApolicy4 + MApolicy1text + MApolicy2text + MApolicy3text + MApolicy4text +
   colorscale +
   theme1
 
@@ -349,10 +373,13 @@ if(!dir.exists(paste0("./", formattedDate))){
 }
 if(!SAVEPLOTS){G}else{
   if(SMOOTH){
-    fileprefix = paste0("./", formattedDate, "/covid19_", STATE, "_", maxDate, "_smooth")
+    fileprefix = paste0("./", formattedDate, "/covid19_", STATE, "_", maxDate, "_smooth", SMOOTHSIZE)
   }else{
     fileprefix = paste0("./", formattedDate, "/covid19_", STATE, "_", maxDate)
   }
   ggsave(file = paste0(fileprefix, ".pdf"), G, width = 12, height = 12, units = "in")
   ggsave(file = paste0(fileprefix, ".png"), G, width = 12, height = 12, units = "in", dpi = 320)
 }
+
+# Print note
+print(paste0("COVID-19 data graphs for ", STATE, " completed up to ", maxDate))
